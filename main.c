@@ -1,13 +1,22 @@
 #include <stdio.h>
 #include <math.h>
 #include "raylib.h"
+#include "raymath.h"
 
 #define GRID_WIDTH 60
 #define GRID_HEIGHT 60
 #define TILE_SIZE 32
 #define PLAYER_SIZE 16
-#define SCREEN_WIDTH 640
-#define SCREEN_HEIGHT 480
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 600
+#define FOV (PI / 3.0F)
+#define PROJ_PLANE_DIST (SCREEN_WIDTH / (2.0F * tanf(FOV / 2.0F)))
+#define MAX_BULLETS 500
+#define BULLET_SPEED 8.0f
+#define BULLET_RADIUS 0.05f
+#define BULLET_LIFE 2.0f
+
+
 
 int map[60][60] = {
     {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0
@@ -138,7 +147,53 @@ typedef struct {
     float speed;
 } Player;
 
+typedef struct Enemy {
+    Vector2 position;
+    Vector2 size;
+    Vector2 velocity;
+    bool alive;
+} Enemy;
+
+typedef struct Bullet {
+    Vector2 position;
+    Vector2 size;
+    Vector2 velocity;
+    bool isActive;
+    float life;
+} Bullet;
+
+Bullet bullets[MAX_BULLETS];
+
+Enemy enemy = {
+    .position = { 10.5f, 8.5f },
+    .size = { 1.0f, 1.0f },
+    .velocity = { 0, 0 },
+    .alive = true
+};
+
+
 const char* pixelizer = "pixelizer.fs";
+
+
+void UpdateEnemy(Enemy *enemy) {
+    if (!enemy->alive) return;
+    float dt = GetFrameTime();
+    enemy->position.x += enemy->velocity.x * dt;
+    enemy->position.y += enemy->velocity.y * dt;
+
+    if (enemy->position.x + enemy->size.x < 0) {
+        enemy->alive = false;
+    }
+
+}
+
+void InitBullets(void) {
+    for (int i = 0; i < MAX_BULLETS; i++) {
+        bullets[i].isActive = false;
+    }
+}
+
+
 
 
 bool WouldCollideWithWall(float newX, float newY) {
@@ -157,7 +212,10 @@ bool WouldCollideWithWall(float newX, float newY) {
 }
 
 int main(void) {
+    float depthBuffer[SCREEN_WIDTH];
+
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Raycaster");
+    InitBullets();
     SetTargetFPS(60);
 
     Player player = { 5.5f, 8.0f, 0.0f, 0.1f };  // Start in grid coordinates
@@ -173,6 +231,15 @@ int main(void) {
         // Rotation
         if (IsKeyDown(KEY_LEFT)) player.angle -= 0.05f;
         if (IsKeyDown(KEY_RIGHT)) player.angle += 0.05f;
+
+        Vector2 mouseDelta = GetMouseDelta();
+        float sensitivity = 0.05f;
+        mouseDelta = Vector2Scale(mouseDelta, sensitivity);
+        DisableCursor();
+        player.angle += mouseDelta.x * GetFrameTime();
+
+
+
 
         // Movement
         float newX = player.x;
@@ -200,6 +267,37 @@ int main(void) {
             player.y = newY;
         }
 
+        float dt = GetFrameTime();
+
+        for (int i = 0; i < MAX_BULLETS; i++) {
+            if (!bullets[i].isActive) continue;
+
+            Vector2 newPos = {
+                bullets[i].position.x + bullets[i].velocity.x * dt,
+                bullets[i].position.y + bullets[i].velocity.y * dt
+            };
+
+            // Wall collision
+            int mapX = (int)newPos.x;
+            int mapY = (int)newPos.y;
+
+            if (mapX < 0 || mapX >= GRID_WIDTH ||
+                mapY < 0 || mapY >= GRID_HEIGHT ||
+                map[mapY][mapX] == 1) {
+
+                bullets[i].isActive = false;
+                continue;
+                }
+
+            bullets[i].position = newPos;
+            bullets[i].life -= dt;
+
+            if (bullets[i].life <= 0.0f) {
+                bullets[i].isActive = false;
+            }
+        }
+
+
         // Step 1: Draw everything to the render texture
         BeginTextureMode(target);
         ClearBackground(BLACK);
@@ -216,6 +314,7 @@ int main(void) {
             float rayY = player.y;
             float distance = 0.0f;
             bool hit = false;
+
 
             // Step along ray until we hit a wall
             while (!hit && distance < 20.0f) {
@@ -235,6 +334,7 @@ int main(void) {
 
             // Fix fish-eye
             distance *= cosf(rayAngle - player.angle);
+            depthBuffer[x] = distance;
 
             // Calculate wall height
             int lineHeight = (int)(SCREEN_HEIGHT / (distance + 0.0001f));
@@ -249,27 +349,91 @@ int main(void) {
             DrawLine(x, drawEnd, x, SCREEN_HEIGHT, GRAY);
         }
 
-        // 2D MAP
-        int minimapScale = 8;
-        int viewRadius = 10;
-        for (int y = -viewRadius; y < viewRadius; y++) {
-            for (int x = -viewRadius; x < viewRadius; x++) {
-                int mapX = (int)player.x + y;
-                int mapY = (int)player.y + x;
 
-                if (mapX >= 0 && mapX < GRID_WIDTH && mapY >= 0 && mapY < GRID_HEIGHT) {
-                    Color c = map[mapY][mapX] ? WHITE : BLACK;
-                    DrawRectangle(
-                        (viewRadius + x) * minimapScale,
-                        SCREEN_HEIGHT - viewRadius * 2 * minimapScale + (viewRadius + y) * minimapScale,
-                        minimapScale, minimapScale, c
+        if (enemy.alive) {
+            float dx = enemy.position.x - player.x;
+            float dy = enemy.position.y - player.y;
+
+            float distance = sqrtf(dx*dx + dy*dy);
+            float angleToEnemy = atan2f(dy, dx);
+            float relativeAngle = angleToEnemy - player.angle;
+
+            while (relativeAngle > PI) relativeAngle -= 2*PI;
+            while (relativeAngle < -PI) relativeAngle += 2*PI;
+
+            if (fabs(relativeAngle) < FOV / 2.0f && distance > 0.1f) {
+                int screenx = (int)(
+                    (0.5f + relativeAngle / FOV) * SCREEN_WIDTH
+                    );
+
+                int spriteHeight = (int)(SCREEN_HEIGHT / distance);
+                int spriteWidth = spriteHeight;
+
+                int drawStartY = SCREEN_HEIGHT / 2 - spriteHeight / 2;
+                int drawEndY = SCREEN_HEIGHT / 2 + spriteHeight / 2;
+
+                int drawStartX = screenx - spriteWidth / 2;
+                int drawEndX = screenx + spriteWidth / 2;
+
+                for (int x = drawStartX; x < drawEndX; x++) {
+                    if (x < 0 || x >= SCREEN_WIDTH) continue;
+                    if (distance >= depthBuffer[x]) continue;
+                    DrawLine(x, drawStartY, x, drawEndY, RED);
+                    for (int i = 0; i < MAX_BULLETS; i++) {
+                        if (!bullets[i].isActive) continue;
+
+                        DrawCircle(
+                            bullets[i].position.x * TILE_SIZE,
+                            bullets[i].position.y * TILE_SIZE,
+                            3,
+                            GREEN
                         );
+                    }
+
                 }
             }
         }
-        DrawCircle(viewRadius * minimapScale,
-            SCREEN_HEIGHT - viewRadius * minimapScale,
-            3, GREEN);
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            for (int i = 0; i < MAX_BULLETS; i++) {
+                if (!bullets[i].isActive) {
+                    bullets[i].isActive = true;
+                    bullets[i].position = (Vector2){ player.x, player.y };
+                    bullets[i].velocity = (Vector2){
+                        cosf(player.angle) * BULLET_SPEED,
+                        sinf(player.angle) * BULLET_SPEED
+                    };
+                    bullets[i].life = BULLET_LIFE;
+                    break; // spawn ONE bullet
+                }
+            }
+        }
+
+
+
+        // 2D MAP
+        //int minimapScale = 8;
+        //int viewRadius = 10;
+        // for (int y = -viewRadius; y < viewRadius; y++) {
+        //     for (int x = -viewRadius; x < viewRadius; x++) {
+        //         int mapX = (int)player.x + y;
+        //         int mapY = (int)player.y + x;
+        //
+        //         if (mapX >= 0 && mapX < GRID_WIDTH && mapY >= 0 && mapY < GRID_HEIGHT) {
+        //             Color c = map[mapY][mapX] ? WHITE : BLACK;
+        //             DrawRectangle(
+        //                 (viewRadius + x) * minimapScale,
+        //                 SCREEN_HEIGHT - viewRadius * 2 * minimapScale + (viewRadius + y) * minimapScale,
+        //                 minimapScale, minimapScale, c
+        //                 );
+        //         }
+        //     }
+        // }
+         // DrawCircle(viewRadius * minimapScale,
+         //     SCREEN_HEIGHT - viewRadius * minimapScale,
+         //     3, GREEN);
+
+
 
         EndTextureMode();
 
