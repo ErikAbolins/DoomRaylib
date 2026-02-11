@@ -39,7 +39,8 @@ int main(void) {
         UpdateBullets(map, &enemy);
 
         // Update enemy
-        UpdateEnemy(&enemy);
+        UpdateEnemy(&enemy, map);
+        EnemyPatrol(&enemy, (Vector2){ player.x, player.y }, map);
 
         // Fire bullet
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {

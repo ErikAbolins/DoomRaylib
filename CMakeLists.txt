@@ -20,9 +20,11 @@ add_executable(NotDoom
     bullet.c
     renderer.c
     map.c
+
 )
 
-add_executable(MapEditor MapEditor.c)
+add_executable(MapEditor MapEditor.c
+)
 
 # Link against raylib
 #target_link_libraries(MyRaylibProjectModular raylib)
