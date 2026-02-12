@@ -5,14 +5,18 @@
 #include "player.h"
 #include "enemy.h"
 #include "bullet.h"
+#include "EnemySpawner.h"
 #include "renderer.h"
 #include "map.h"
 
 #define PLAYER_SIZE 16
+#define MAX_ENEMIES 7
+
 
 const char* pixelizer = "pixelizer.fs";
 
-int main(void) {
+int main(void)
+{
     float depthBuffer[SCREEN_WIDTH];
 
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Raycaster");
@@ -22,59 +26,58 @@ int main(void) {
     Player player;
     InitPlayer(&player, 5.5f, 8.0f);
 
-    Enemy enemy;
-    InitEnemy(&enemy, 10.5f, 8.5f);
+    Enemy enemies[MAX_ENEMIES];
+
+    SpawnEnemies(enemies, map);
 
     RenderTexture2D target = LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT);
     Shader shader = LoadShader(0, pixelizer);
-    if (!IsShaderValid(shader)) {
-        TraceLog(LOG_ERROR, "shader failed to load");
-    }
 
-    while (!WindowShouldClose()) {
-        // Update player
+    while (!WindowShouldClose())
+    {
+        // ---------------- UPDATE ----------------
+
         UpdatePlayer(&player, map);
 
-        // Update bullets
-        UpdateBullets(map, &enemy);
-
-        // Update enemy
-        UpdateEnemy(&enemy, map);
-        EnemyPatrol(&enemy, (Vector2){ player.x, player.y }, map);
-
-        // Fire bullet
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            FireBullet(player.x, player.y, player.angle);
-
-            // Calculate time of impact for prediction
-            double t = time_of_impact(
-                (Vector2){ player.x, player.y },
-                (Vector2){ cosf(player.angle) * BULLET_SPEED, sinf(player.angle) * BULLET_SPEED },
-                enemy.position,
-                enemy.velocity,
-                BULLET_SPEED
-            );
-
-            if (t >= 0) TraceLog(LOG_INFO, "Bullet will hit in %.2f seconds.", t);
-            else TraceLog(LOG_INFO, "no hit");
+        // Update all enemies
+        for (int i = 0; i < MAX_ENEMIES; i++)
+        {
+            //SpawnEnemies(&enemies[i], map);
+            UpdateEnemy(&enemies[i], map);
+            EnemyPatrol(&enemies[i], (Vector2){ player.x, player.y }, map);
         }
 
-        // Draw everything to render texture
+        // Update bullets
+        for (int i = 0; i < MAX_ENEMIES; i++)
+        {
+            UpdateBullets(map, &enemies[i]);
+        }
+
+        // Fire bullet
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            FireBullet(player.x, player.y, player.angle);
+        }
+
+        // ---------------- RENDER ----------------
+
         BeginTextureMode(target);
         ClearBackground(BLACK);
 
-        // Render 3D scene
-        RenderScene(&player, &enemy, map, depthBuffer);
+        RenderScene(&player, enemies, MAX_ENEMIES, map, depthBuffer);
 
         EndTextureMode();
 
         BeginDrawing();
         ClearBackground(BLACK);
         BeginShaderMode(shader);
+
         DrawTextureRec(target.texture,
-                      (Rectangle){0, 0, SCREEN_WIDTH, -SCREEN_HEIGHT},
-                      (Vector2){0, 0}, WHITE);
+                       (Rectangle){0, 0, SCREEN_WIDTH, -SCREEN_HEIGHT},
+                       (Vector2){0, 0}, WHITE);
+
         EndShaderMode();
+
         DrawCrosshair();
         DrawFPS(10, 10);
         EndDrawing();

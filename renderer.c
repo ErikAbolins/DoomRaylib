@@ -4,8 +4,14 @@
 #define GRID_WIDTH 60
 #define GRID_HEIGHT 60
 
-void RenderScene(Player *player, Enemy *enemy, int map[60][60], float *depthBuffer) {
-    // 3D VIEW
+// Helper struct for sorting enemies by distance
+typedef struct {
+    int index;
+    float distance;
+} EnemyDistance;
+
+void RenderScene(Player *player, Enemy *enemies, int enemyCount, int map[60][60], float *depthBuffer) {
+    // 3D VIEW - Render walls first
     float fov = PI / 3.0f;
     for (int x = 0; x < SCREEN_WIDTH; x++) {
         float rayAngle = (player->angle - fov/2.0f) + ((float)x / SCREEN_WIDTH) * fov;
@@ -45,17 +51,68 @@ void RenderScene(Player *player, Enemy *enemy, int map[60][60], float *depthBuff
         DrawLine(x, drawEnd, x, SCREEN_HEIGHT, GRAY);
     }
 
-    // Draw enemy
-    if (enemy->alive) {
+    // Calculate distances for all alive enemies
+    EnemyDistance enemyDistances[100];
+    int aliveCount = 0;
+
+    for (int i = 0; i < enemyCount; i++) {
+        if (enemies[i].alive) {
+            float dx = enemies[i].position.x - player->x;
+            float dy = enemies[i].position.y - player->y;
+            float distance = sqrtf(dx*dx + dy*dy);
+
+            enemyDistances[aliveCount].index = i;
+            enemyDistances[aliveCount].distance = distance;
+            aliveCount++;
+
+            // Debug: Print enemy info on first frame
+            static bool printed = false;
+            if (!printed && i == 0) {
+                TraceLog(LOG_INFO, "Enemy %d: pos(%.2f, %.2f) player(%.2f, %.2f) dist=%.2f alive=%d",
+                    i, enemies[i].position.x, enemies[i].position.y,
+                    player->x, player->y, distance, enemies[i].alive);
+            }
+        }
+    }
+
+    static bool printedCount = false;
+    if (!printedCount) {
+        TraceLog(LOG_INFO, "Total alive enemies: %d out of %d", aliveCount, enemyCount);
+        printedCount = true;
+    }
+
+    // Sort enemies by distance
+    for (int i = 0; i < aliveCount - 1; i++) {
+        for (int j = 0; j < aliveCount - i - 1; j++) {
+            if (enemyDistances[j].distance < enemyDistances[j + 1].distance) {
+                EnemyDistance temp = enemyDistances[j];
+                enemyDistances[j] = enemyDistances[j + 1];
+                enemyDistances[j + 1] = temp;
+            }
+        }
+    }
+
+    // Draw all enemies from farthest to nearest
+    for (int i = 0; i < aliveCount; i++) {
+        Enemy *enemy = &enemies[enemyDistances[i].index];
+        float distance = enemyDistances[i].distance;
+
         float dx = enemy->position.x - player->x;
         float dy = enemy->position.y - player->y;
 
-        float distance = sqrtf(dx*dx + dy*dy);
         float angleToEnemy = atan2f(dy, dx);
         float relativeAngle = angleToEnemy - player->angle;
 
         while (relativeAngle > PI) relativeAngle -= 2*PI;
         while (relativeAngle < -PI) relativeAngle += 2*PI;
+
+        static bool printedRender = false;
+        if (!printedRender && i == 0) {
+            TraceLog(LOG_INFO, "Enemy %d render: relAngle=%.2f FOV=%.2f inFOV=%d dist=%.2f",
+                enemyDistances[i].index, relativeAngle, FOV,
+                (fabs(relativeAngle) < FOV / 2.0f), distance);
+            printedRender = true;
+        }
 
         if (fabs(relativeAngle) < FOV / 2.0f && distance > 0.1f) {
             int screenx = (int)((0.5f + relativeAngle / FOV) * SCREEN_WIDTH);
