@@ -31,7 +31,11 @@ int main(void)
     SpawnEnemies(enemies, map);
 
     RenderTexture2D target = LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT);
+    RenderTexture2D wallTexture = LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT);
     Shader shader = LoadShader(0, pixelizer);
+
+    Texture2D wallTextureImage = LoadTexture("../assets/WALL.png");
+    SetTextureFilter(wallTextureImage, TEXTURE_FILTER_POINT);
 
     while (!WindowShouldClose())
     {
@@ -60,14 +64,17 @@ int main(void)
         }
 
         // ---------------- RENDER ----------------
+        BeginTextureMode(wallTexture);
+        ClearBackground(BLACK);
+        RenderScene(&player, enemies, MAX_ENEMIES, map, depthBuffer, wallTextureImage);
+        EndTextureMode();
 
         BeginTextureMode(target);
         ClearBackground(BLACK);
-
-        RenderScene(&player, enemies, MAX_ENEMIES, map, depthBuffer);
-
+        DrawTextureRec(wallTexture.texture,
+                       (Rectangle){0, 0, SCREEN_WIDTH, -SCREEN_HEIGHT},
+                       (Vector2){0, 0}, WHITE);
         EndTextureMode();
-
         BeginDrawing();
         ClearBackground(BLACK);
         BeginShaderMode(shader);
@@ -84,6 +91,8 @@ int main(void)
     }
 
     UnloadRenderTexture(target);
+    UnloadRenderTexture(wallTexture);
+    UnloadTexture(wallTextureImage);
     UnloadShader(shader);
     CloseWindow();
     return 0;

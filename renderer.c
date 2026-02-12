@@ -10,7 +10,9 @@ typedef struct {
     float distance;
 } EnemyDistance;
 
-void RenderScene(Player *player, Enemy *enemies, int enemyCount, int map[60][60], float *depthBuffer) {
+
+
+void RenderScene(Player *player, Enemy *enemies, int enemyCount, int map[60][60], float *depthBuffer, Texture2D wallTexture) {
     // 3D VIEW - Render walls first
     float fov = PI / 3.0f;
     for (int x = 0; x < SCREEN_WIDTH; x++) {
@@ -46,8 +48,27 @@ void RenderScene(Player *player, Enemy *enemies, int enemyCount, int map[60][60]
         int drawStart = (SCREEN_HEIGHT / 2) - (lineHeight / 2);
         int drawEnd = (SCREEN_HEIGHT / 2) + (lineHeight / 2);
 
+        // Draw ceiling
         DrawLine(x, 0, x, drawStart, DARKGRAY);
-        DrawLine(x, drawStart, x, drawEnd, DARKPURPLE);
+
+        // Draw textured wall using DrawTexturePro with proper scaling
+        float wallX;
+        if (fabs(rayDirX) > fabs(rayDirY)) {
+            wallX = rayY;
+        } else {
+            wallX = rayX;
+        }
+        wallX -= floorf(wallX);
+
+        int texX = (int)(wallX * (float)wallTexture.width) % wallTexture.width;
+        if (texX < 0) texX = 0;
+
+        // Draw a vertical slice of the texture (use slightly wider source for better sampling)
+        Rectangle sourceRec = { (float)texX, 0, 1.0f, (float)wallTexture.height };
+        Rectangle destRec = { (float)x, (float)drawStart, 1.0f, (float)(drawEnd - drawStart) };
+        DrawTexturePro(wallTexture, sourceRec, destRec, (Vector2){0, 0}, 0.0f, WHITE);
+
+        // Draw floor
         DrawLine(x, drawEnd, x, SCREEN_HEIGHT, GRAY);
     }
 
@@ -65,21 +86,12 @@ void RenderScene(Player *player, Enemy *enemies, int enemyCount, int map[60][60]
             enemyDistances[aliveCount].distance = distance;
             aliveCount++;
 
-            // Debug: Print enemy info on first frame
-            static bool printed = false;
-            if (!printed && i == 0) {
-                TraceLog(LOG_INFO, "Enemy %d: pos(%.2f, %.2f) player(%.2f, %.2f) dist=%.2f alive=%d",
-                    i, enemies[i].position.x, enemies[i].position.y,
-                    player->x, player->y, distance, enemies[i].alive);
-            }
+
+
         }
     }
 
-    static bool printedCount = false;
-    if (!printedCount) {
-        TraceLog(LOG_INFO, "Total alive enemies: %d out of %d", aliveCount, enemyCount);
-        printedCount = true;
-    }
+
 
     // Sort enemies by distance
     for (int i = 0; i < aliveCount - 1; i++) {
@@ -106,13 +118,7 @@ void RenderScene(Player *player, Enemy *enemies, int enemyCount, int map[60][60]
         while (relativeAngle > PI) relativeAngle -= 2*PI;
         while (relativeAngle < -PI) relativeAngle += 2*PI;
 
-        static bool printedRender = false;
-        if (!printedRender && i == 0) {
-            TraceLog(LOG_INFO, "Enemy %d render: relAngle=%.2f FOV=%.2f inFOV=%d dist=%.2f",
-                enemyDistances[i].index, relativeAngle, FOV,
-                (fabs(relativeAngle) < FOV / 2.0f), distance);
-            printedRender = true;
-        }
+
 
         if (fabs(relativeAngle) < FOV / 2.0f && distance > 0.1f) {
             int screenx = (int)((0.5f + relativeAngle / FOV) * SCREEN_WIDTH);

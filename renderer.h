@@ -10,7 +10,7 @@
 #define FOV (PI / 3.0F)
 #define PROJ_PLANE_DIST (SCREEN_WIDTH / (2.0F * tanf(FOV / 2.0F)))
 
-void RenderScene(Player *player, Enemy *enemies, int enemyCount, int map[60][60], float *depthBuffer);
+void RenderScene(Player *player, Enemy *enemies, int enemyCount, int map[60][60], float *depthBuffer, Texture2D wallTexture);
 void DrawCrosshair(void);
 
 #endif // RENDERER_H
