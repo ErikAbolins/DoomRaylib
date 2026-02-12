@@ -40,6 +40,7 @@ void UpdateEnemy(Enemy *enemy, int map[60][60]) {
     enemy->position.x += enemy->velocity.x * dt;
     enemy->position.y += enemy->velocity.y * dt;
 
+
     if (enemy->position.x + enemy->size.x < 0) {
         enemy->alive = false;
     }
@@ -48,17 +49,45 @@ void UpdateEnemy(Enemy *enemy, int map[60][60]) {
 
 
 
-void EnemyPatrol(Enemy *enemy, Vector2 playerPos, int map[60][60]) {
+void EnemyChase(Enemy *enemy, Vector2 playerPos, int map[60][60])
+{
     float dist = Vector2Distance(enemy->position, playerPos);
-    float newX = enemy->position.x;
-    float newY = enemy->position.y;
 
-    if (dist < enemy->detectionRange && !WouldEnemyCollideWithWall(newX, newY, map)) {
-        //point at player then follow
+    if (dist < enemy->detectionRange)
+    {
         float dx = playerPos.x - enemy->position.x;
         float dy = playerPos.y - enemy->position.y;
+
         enemy->angle = atan2f(dy, dx);
-        enemy->position.x += cosf(enemy->angle) * enemy->speed * GetFrameTime();
-        enemy->position.y += sinf(enemy->angle) * enemy->speed * GetFrameTime();
+
+        float nextX = enemy->position.x + cosf(enemy->angle) * enemy->speed * GetFrameTime();
+        float nextY = enemy->position.y + sinf(enemy->angle) * enemy->speed * GetFrameTime();
+
+        if (!WouldEnemyCollideWithWall(nextX, nextY, map))
+        {
+            enemy->position.x = nextX;
+            enemy->position.y = nextY;
+            enemy->state = CHASE;
+        }
     }
 }
+
+
+
+void EnemyIdle(Enemy *enemy, Vector2 playerPos, int map[60][60])
+{
+    float speed = 50.0f;
+
+    Vector2 randomDir = {
+        GetRandomValue(-100, 100) / 100.0f,
+        GetRandomValue(-100, 100) / 100.0f
+    };
+
+    randomDir = Vector2Normalize(randomDir);
+
+    enemy->position.x += randomDir.x * speed * GetFrameTime();
+    enemy->position.y += randomDir.y * speed * GetFrameTime();
+
+    enemy->state = IDLE;
+}
+

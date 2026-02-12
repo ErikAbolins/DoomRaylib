@@ -46,9 +46,13 @@ int main(void)
         // Update all enemies
         for (int i = 0; i < MAX_ENEMIES; i++)
         {
-            //SpawnEnemies(&enemies[i], map);
             UpdateEnemy(&enemies[i], map);
-            EnemyPatrol(&enemies[i], (Vector2){ player.x, player.y }, map);
+            float dist = Vector2Distance(enemies[i].position, (Vector2){ player.x, player.y });
+            if (dist > enemies[i].detectionRange) {
+                EnemyIdle(&enemies[i], (Vector2){ player.x, player.y }, map);
+            } else {
+                EnemyChase(&enemies[i], (Vector2){ player.x, player.y }, map);
+            }
         }
 
         // Update bullets

@@ -21,7 +21,8 @@ typedef struct Enemy {
 
 void InitEnemy(Enemy *enemy, float x, float y);
 void UpdateEnemy(Enemy *enemy, int map[60][60]);
-void EnemyPatrol(Enemy *enemy, Vector2 playerPos, int map [60][60]);
+void EnemyChase(Enemy *enemy, Vector2 playerPos, int map [60][60]);
+void EnemyIdle(Enemy *enemy, Vector2 playerPos, int map[60][60]);
 bool WouldEnemyCollideWithWall(float newX, float newY, int map[60][60]);
 
 
