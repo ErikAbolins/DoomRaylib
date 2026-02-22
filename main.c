@@ -19,7 +19,7 @@ int main(void)
 {
     float depthBuffer[SCREEN_WIDTH];
 
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Raycaster");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "NotDoom");
     InitBullets();
     SetTargetFPS(60);
 
@@ -90,6 +90,7 @@ int main(void)
         EndShaderMode();
 
         DrawCrosshair();
+        DrawText(TextFormat("Health: %.0f", player.health), 350, 550, 20, WHITE);
         DrawFPS(10, 10);
         EndDrawing();
     }

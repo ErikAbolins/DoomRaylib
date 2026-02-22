@@ -38,8 +38,8 @@ double time_of_impact(Vector2 bulletPosition, Vector2 bulletVelocity, Vector2 ta
     return -1.0; // No valid time
 }
 
-void UpdateBullets(int map[60][60], void *enemyPtr) {
-    Enemy *enemy = (Enemy *)enemyPtr;
+void UpdateBullets(int map[60][60], Enemy *enemies) {
+    Enemy *enemy = enemies;
     float dt = GetFrameTime();
 
     for (int i = 0; i < MAX_BULLETS; i++) {

@@ -3,6 +3,7 @@
 
 #include "raylib.h"
 #include <stdbool.h>
+#include "enemy.h"
 
 #define MAX_BULLETS 500
 #define BULLET_SPEED 8.0f
@@ -20,7 +21,7 @@ typedef struct Bullet {
 extern Bullet bullets[MAX_BULLETS];
 
 void InitBullets(void);
-void UpdateBullets(int map[60][60], void *enemy);
+void UpdateBullets(int map[60][60], Enemy *enemies);
 void FireBullet(float playerX, float playerY, float playerAngle);
 double time_of_impact(Vector2 bulletPosition, Vector2 bulletVelocity, Vector2 targetPos, Vector2 targetVel, double speed);
 

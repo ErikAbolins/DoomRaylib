@@ -51,7 +51,7 @@ void RenderScene(Player *player, Enemy *enemies, int enemyCount, int map[60][60]
         // Draw ceiling
         DrawLine(x, 0, x, drawStart, DARKGRAY);
 
-        // Draw textured wall using DrawTexturePro with proper scaling
+
         float wallX;
         if (fabs(rayDirX) > fabs(rayDirY)) {
             wallX = rayY;
